@@ -1,0 +1,118 @@
+# Coolify source-build definition. See deployment/README.md before exposing a route.
+# exclude_from_hc is a documented Coolify extension, removed by its Compose parser.
+services:
+  database:
+    build: {context: ., dockerfile: postgres.coolify.Dockerfile}
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: catalog_demo
+      POSTGRES_PASSWORD: "${POSTGRES_ADMIN_PASSWORD:?Set the private database administrator password}"
+      POSTGRES_MIGRATOR_PASSWORD: "${POSTGRES_MIGRATOR_PASSWORD:?Set the private migration password}"
+      POSTGRES_RUNTIME_PASSWORD: "${POSTGRES_RUNTIME_PASSWORD:?Set the private runtime password}"
+    volumes: ["catalog-data:/var/lib/postgresql/data"]
+    networks: [database]
+    healthcheck:
+      # TCP remains unavailable during the temporary first-volume initialization server.
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "catalog_demo"]
+      interval: 3s
+      timeout: 2s
+      retries: 30
+      start_period: 10s
+    mem_limit: 512m
+    cpus: 1
+    restart: unless-stopped
+    logging: &bounded-logs
+      driver: json-file
+      options: {max-size: "5m", max-file: "2"}
+    labels:
+      - traefik.enable=false
+
+  migrate:
+    build: {context: ./backend}
+    command: ["migrate", "up"]
+    environment:
+      MIGRATION_DATABASE_URL: "postgresql://catalog_migrator:${POSTGRES_MIGRATOR_PASSWORD:?Set the private migration password}@database:5432/catalog_demo?sslmode=disable"
+      DEMO_DATABASE_NAME: catalog_demo
+    depends_on:
+      database: {condition: service_healthy}
+    networks: [database]
+    exclude_from_hc: true
+    restart: "no"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    cpus: 1
+    logging: *bounded-logs
+    labels:
+      - traefik.enable=false
+
+  backend:
+    build: {context: ./backend}
+    command: ["serve"]
+    environment:
+      DATABASE_URL: "postgresql://catalog_runtime:${POSTGRES_RUNTIME_PASSWORD:?Set the private runtime password}@database:5432/catalog_demo?sslmode=disable"
+      DEMO_DATABASE_NAME: catalog_demo
+      APP_ADDR: "0.0.0.0:8080"
+    depends_on:
+      database: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    networks: [api, database]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: ["CMD", "/catalog", "health"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+    mem_limit: 256m
+    cpus: 1
+    restart: unless-stopped
+    stop_grace_period: 15s
+    logging: *bounded-logs
+    labels:
+      - traefik.enable=false
+
+  frontend:
+    build: {context: ./frontend}
+    environment:
+      APP_ORIGIN: "${APP_ORIGIN:?Set the exact HTTPS preview origin}"
+      GO_API_URL: "http://backend:8080"
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      HOSTNAME: "0.0.0.0"
+      PORT: "3000"
+    depends_on:
+      backend: {condition: service_healthy}
+    networks: [ingress, api]
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+      - /app/.next/cache:size=32m,uid=1000,gid=1000,mode=0700
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 512m
+    cpus: 1
+    restart: unless-stopped
+    stop_grace_period: 15s
+    logging: *bounded-logs
+    labels:
+      - traefik.enable=true
+      - "traefik.http.middlewares.${AUTH_NAMESPACE:?Set a unique preview middleware namespace}-preview-auth.basicauth.users=${PREVIEW_AUTH_USERS:?Set the private bcrypt preview access entry}"
+      - "traefik.http.middlewares.${AUTH_NAMESPACE:?Set a unique preview middleware namespace}-preview-auth.basicauth.removeheader=true"
+      - "traefik.http.middlewares.${AUTH_NAMESPACE:?Set a unique preview middleware namespace}-preview-auth.basicauth.realm=Private preview"
+      - "traefik.http.routers.${HTTPS_ROUTER_NAME:?Set the verified Coolify HTTPS router name}.middlewares=gzip,${AUTH_NAMESPACE:?Set a unique preview middleware namespace}-preview-auth"
+
+volumes:
+  catalog-data: {}
+
+networks:
+  ingress: {}
+  api: {internal: true}
+  database: {internal: true}
