@@ -7,7 +7,7 @@ This definition is independent of native helpers, legacy ownership records and l
 
 ## Required private configuration
 
-Use the deployment platform's private runtime variables. [`.env.example`](.env.example) documents
+Use the deployment platform's private configuration. [`.env.example`](.env.example) documents
 placeholders, not working credentials. Do not load it into the native root `.env` or commit real values.
 
 | Setting | Required meaning |
@@ -16,7 +16,7 @@ placeholders, not working credentials. Do not load it into the native root `.env
 | `POSTGRES_MIGRATOR_PASSWORD` | Independent migration-role secret in the same format |
 | `POSTGRES_RUNTIME_PASSWORD` | Independent least-privileged runtime secret in the same format |
 | `APP_ORIGIN` | Exact approved HTTPS origin, without credentials, a path, query or fragment |
-| `AUTH_NAMESPACE` | Unique router-safe namespace for this application's custom auth middleware |
+| `AUTH_NAMESPACE` | Unique lowercase router/image-safe namespace; non-secret metadata available during build and runtime |
 | `HTTPS_ROUTER_NAME` | Exact generated frontend HTTPS router name, verified in the saved platform configuration |
 | `PREVIEW_AUTH_USERS` | Private `username:bcrypt-hash` access entry, not plaintext credentials |
 
@@ -69,6 +69,18 @@ checks remain active. No reset command is part of deployment.
 
 1. Select the approved repository/branch, repository-root build context and `compose.coolify.yaml`.
    Confirm the intended source revision; do not infer it from an application name.
+   Set the custom build command to
+   `docker compose --project-name <verified-project-name> -f compose.build.yaml build --pull`,
+   replacing the placeholder only in private platform configuration.
+   The separate [build-only definition](../compose.build.yaml) uses the same service and project
+   identities without parsing runtime environments, labels or secrets. Enable build and runtime
+   availability for non-secret `AUTH_NAMESPACE` only; the other six keys stay runtime-only.
+   Explicit image names match in both definitions and prevent platform-generated tag divergence.
+   Use the same project identity at startup. Verify resulting image tags and the
+   effective command; do not enable secret build arguments to fix a Compose interpolation error.
+   Keep the default runtime start command and the runtime Compose location unchanged.
+   The locally scoped `latest` tags are mutable: record actual image IDs with each source revision
+   and rebuild the chosen source for rollback instead of treating a tag as immutable evidence.
 2. Configure only the frontend domain, targeting its internal port 3000. Do not assign domains or
    proxy routes to database, migration or backend services. Inspect effective private-network membership.
    Managed Compose can add a shared application network to all services: do not assume the separate

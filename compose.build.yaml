@@ -1,0 +1,16 @@
+# Build-only projection: runtime secrets must not be needed for image construction.
+# Explicit image names match the runtime definition; only non-secret metadata is required.
+
+services:
+  database:
+    image: "${AUTH_NAMESPACE:?Set the deployment image namespace}-database:latest"
+    build: {context: ., dockerfile: postgres.coolify.Dockerfile}
+  migrate:
+    image: "${AUTH_NAMESPACE:?Set the deployment image namespace}-migrate:latest"
+    build: {context: ./backend}
+  backend:
+    image: "${AUTH_NAMESPACE:?Set the deployment image namespace}-backend:latest"
+    build: {context: ./backend}
+  frontend:
+    image: "${AUTH_NAMESPACE:?Set the deployment image namespace}-frontend:latest"
+    build: {context: ./frontend}

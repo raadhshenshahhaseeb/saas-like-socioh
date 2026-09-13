@@ -2,6 +2,7 @@
 # exclude_from_hc is a documented Coolify extension, removed by its Compose parser.
 services:
   database:
+    image: "${AUTH_NAMESPACE:?Set the deployment image namespace}-database:latest"
     build: {context: ., dockerfile: postgres.coolify.Dockerfile}
     environment:
       POSTGRES_USER: postgres
@@ -30,6 +31,7 @@ services:
       - traefik.enable=false
 
   migrate:
+    image: "${AUTH_NAMESPACE:?Set the deployment image namespace}-migrate:latest"
     build: {context: ./backend}
     command: ["migrate", "up"]
     environment:
@@ -54,6 +56,7 @@ services:
       - traefik.enable=false
 
   backend:
+    image: "${AUTH_NAMESPACE:?Set the deployment image namespace}-backend:latest"
     build: {context: ./backend}
     command: ["serve"]
     environment:
@@ -85,6 +88,7 @@ services:
       - traefik.enable=false
 
   frontend:
+    image: "${AUTH_NAMESPACE:?Set the deployment image namespace}-frontend:latest"
     build: {context: ./frontend}
     environment:
       APP_ORIGIN: "${APP_ORIGIN:?Set the exact HTTPS preview origin}"
