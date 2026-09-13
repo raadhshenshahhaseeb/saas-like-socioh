@@ -24,17 +24,26 @@ Missing values stop Compose interpolation. Nonempty but incorrect router names d
 access protection: the operator must verify the effective router and unauthenticated responses before
 exposing or announcing the preview. Preserve bcrypt dollar signs through the platform's rendering;
 do not paste a hash into source, screenshots, logs, build arguments or public deployment evidence.
-The frontend receives no database credentials or preview credential variables in its environment.
+The frontend receives no working database or preview credential values in its environment.
 The bcrypt hash is necessarily present in its private Docker middleware labels; restrict Docker and
 deployment-configuration access accordingly. Disable automatic secret-to-build-argument injection.
 
-Some Coolify versions inject a shared runtime `env_file` into every service. The explicit empty
-credential values in this manifest override that file on non-owning services; they are intentional,
-not missing configuration. Keep each Go service's required DSN, but do not replace empty values
-with null, interpolation or working passwords. This protects the current documented credential set,
+Some Coolify versions inject a shared runtime `env_file` into every service and refill empty values
+from saved application variables. The fixed `not-used-in-this-service` values intentionally override
+unrelated credentials on non-owning services. This sentinel is not a valid configured password or
+bcrypt entry. Keep each Go service's required DSN; never replace the sentinel with an empty string,
+null, interpolation or working password. This protects the current documented credential set,
 not arbitrary future variables. Whenever adding a secret, update its service scopes and verify both
 the generated Compose and actual container environments. Docker's `environment` values take
-precedence over `env_file`; confirm the platform preserves the empty strings.
+precedence over `env_file`; confirm the platform preserves the literal sentinels.
+
+The app-specific middleware chain also bounds pre-authentication work: five requests per second
+with a burst of 30, and at most 20 concurrent requests. A preceding middleware overwrites the
+grouping header with a fixed non-secret value, so callers cannot select fresh limiter buckets using
+their own header, address or host spelling. Preserve the order: scope header, rate limit, in-flight
+limit, authentication. These are conservative single-proxy preview defaults, not a measured CPU
+budget, per-user fairness policy or distributed denial-of-service protection. Check normal page
+assets and catalog actions after changes; do not run a production saturation test.
 
 ## Services and initialization
 

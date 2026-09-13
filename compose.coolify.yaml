@@ -9,8 +9,8 @@ services:
       POSTGRES_PASSWORD: "${POSTGRES_ADMIN_PASSWORD:?Set the private database administrator password}"
       POSTGRES_MIGRATOR_PASSWORD: "${POSTGRES_MIGRATOR_PASSWORD:?Set the private migration password}"
       POSTGRES_RUNTIME_PASSWORD: "${POSTGRES_RUNTIME_PASSWORD:?Set the private runtime password}"
-      # Coolify may inject a shared env_file into every service. Blank unrelated credentials.
-      PREVIEW_AUTH_USERS: ""
+      # Nonempty sentinels override shared env_file secrets; Coolify refills empty strings.
+      PREVIEW_AUTH_USERS: "not-used-in-this-service"
     volumes: ["catalog-data:/var/lib/postgresql/data"]
     networks: [database]
     healthcheck:
@@ -35,10 +35,10 @@ services:
     environment:
       MIGRATION_DATABASE_URL: "postgresql://catalog_migrator:${POSTGRES_MIGRATOR_PASSWORD:?Set the private migration password}@database:5432/catalog_demo?sslmode=disable"
       DEMO_DATABASE_NAME: catalog_demo
-      POSTGRES_ADMIN_PASSWORD: ""
-      POSTGRES_MIGRATOR_PASSWORD: ""
-      POSTGRES_RUNTIME_PASSWORD: ""
-      PREVIEW_AUTH_USERS: ""
+      POSTGRES_ADMIN_PASSWORD: "not-used-in-this-service"
+      POSTGRES_MIGRATOR_PASSWORD: "not-used-in-this-service"
+      POSTGRES_RUNTIME_PASSWORD: "not-used-in-this-service"
+      PREVIEW_AUTH_USERS: "not-used-in-this-service"
     depends_on:
       database: {condition: service_healthy}
     networks: [database]
@@ -60,10 +60,10 @@ services:
       DATABASE_URL: "postgresql://catalog_runtime:${POSTGRES_RUNTIME_PASSWORD:?Set the private runtime password}@database:5432/catalog_demo?sslmode=disable"
       DEMO_DATABASE_NAME: catalog_demo
       APP_ADDR: "0.0.0.0:8080"
-      POSTGRES_ADMIN_PASSWORD: ""
-      POSTGRES_MIGRATOR_PASSWORD: ""
-      POSTGRES_RUNTIME_PASSWORD: ""
-      PREVIEW_AUTH_USERS: ""
+      POSTGRES_ADMIN_PASSWORD: "not-used-in-this-service"
+      POSTGRES_MIGRATOR_PASSWORD: "not-used-in-this-service"
+      POSTGRES_RUNTIME_PASSWORD: "not-used-in-this-service"
+      PREVIEW_AUTH_USERS: "not-used-in-this-service"
     depends_on:
       database: {condition: service_healthy}
       migrate: {condition: service_completed_successfully}
@@ -93,10 +93,10 @@ services:
       NEXT_TELEMETRY_DISABLED: "1"
       HOSTNAME: "0.0.0.0"
       PORT: "3000"
-      POSTGRES_ADMIN_PASSWORD: ""
-      POSTGRES_MIGRATOR_PASSWORD: ""
-      POSTGRES_RUNTIME_PASSWORD: ""
-      PREVIEW_AUTH_USERS: ""
+      POSTGRES_ADMIN_PASSWORD: "not-used-in-this-service"
+      POSTGRES_MIGRATOR_PASSWORD: "not-used-in-this-service"
+      POSTGRES_RUNTIME_PASSWORD: "not-used-in-this-service"
+      PREVIEW_AUTH_USERS: "not-used-in-this-service"
     depends_on:
       backend: {condition: service_healthy}
     networks: [ingress, api]
@@ -118,10 +118,18 @@ services:
     logging: *bounded-logs
     labels:
       - traefik.enable=true
+      # Replace any client-supplied grouping header before applying app-wide pre-auth bounds.
+      - "traefik.http.middlewares.${AUTH_NAMESPACE:?Set a unique preview middleware namespace}-preview-scope.headers.customrequestheaders.X-Catalog-Preview-Admission=catalog-preview"
+      - "traefik.http.middlewares.${AUTH_NAMESPACE:?Set a unique preview middleware namespace}-preview-rate.ratelimit.average=5"
+      - "traefik.http.middlewares.${AUTH_NAMESPACE:?Set a unique preview middleware namespace}-preview-rate.ratelimit.period=1s"
+      - "traefik.http.middlewares.${AUTH_NAMESPACE:?Set a unique preview middleware namespace}-preview-rate.ratelimit.burst=30"
+      - "traefik.http.middlewares.${AUTH_NAMESPACE:?Set a unique preview middleware namespace}-preview-rate.ratelimit.sourcecriterion.requestheadername=X-Catalog-Preview-Admission"
+      - "traefik.http.middlewares.${AUTH_NAMESPACE:?Set a unique preview middleware namespace}-preview-flight.inflightreq.amount=20"
+      - "traefik.http.middlewares.${AUTH_NAMESPACE:?Set a unique preview middleware namespace}-preview-flight.inflightreq.sourcecriterion.requestheadername=X-Catalog-Preview-Admission"
       - "traefik.http.middlewares.${AUTH_NAMESPACE:?Set a unique preview middleware namespace}-preview-auth.basicauth.users=${PREVIEW_AUTH_USERS:?Set the private bcrypt preview access entry}"
       - "traefik.http.middlewares.${AUTH_NAMESPACE:?Set a unique preview middleware namespace}-preview-auth.basicauth.removeheader=true"
       - "traefik.http.middlewares.${AUTH_NAMESPACE:?Set a unique preview middleware namespace}-preview-auth.basicauth.realm=Private preview"
-      - "traefik.http.routers.${HTTPS_ROUTER_NAME:?Set the verified Coolify HTTPS router name}.middlewares=gzip,${AUTH_NAMESPACE:?Set a unique preview middleware namespace}-preview-auth"
+      - "traefik.http.routers.${HTTPS_ROUTER_NAME:?Set the verified Coolify HTTPS router name}.middlewares=gzip,${AUTH_NAMESPACE:?Set a unique preview middleware namespace}-preview-scope,${AUTH_NAMESPACE:?Set a unique preview middleware namespace}-preview-rate,${AUTH_NAMESPACE:?Set a unique preview middleware namespace}-preview-flight,${AUTH_NAMESPACE:?Set a unique preview middleware namespace}-preview-auth"
 
 volumes:
   catalog-data: {}
