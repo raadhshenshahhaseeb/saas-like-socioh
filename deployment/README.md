@@ -28,6 +28,14 @@ The frontend receives no database credentials or preview credential variables in
 The bcrypt hash is necessarily present in its private Docker middleware labels; restrict Docker and
 deployment-configuration access accordingly. Disable automatic secret-to-build-argument injection.
 
+Some Coolify versions inject a shared runtime `env_file` into every service. The explicit empty
+credential values in this manifest override that file on non-owning services; they are intentional,
+not missing configuration. Keep each Go service's required DSN, but do not replace empty values
+with null, interpolation or working passwords. This protects the current documented credential set,
+not arbitrary future variables. Whenever adding a secret, update its service scopes and verify both
+the generated Compose and actual container environments. Docker's `environment` values take
+precedence over `env_file`; confirm the platform preserves the empty strings.
+
 ## Services and initialization
 
 The four services are `database`, `migrate`, `backend` and `frontend`. There are no host-port
@@ -54,6 +62,8 @@ checks remain active. No reset command is part of deployment.
    Confirm the intended source revision; do not infer it from an application name.
 2. Configure only the frontend domain, targeting its internal port 3000. Do not assign domains or
    proxy routes to database, migration or backend services. Inspect effective private-network membership.
+   Managed Compose can add a shared application network to all services: do not assume the separate
+   source networks provide strict frontend-to-database segmentation after platform generation.
 3. Verify `HTTPS_ROUTER_NAME` and the final router middleware chain includes both `gzip` and the
    namespaced preview-auth middleware. `removeheader=true` strips preview credentials before forwarding.
    Require HTTPS; protect or remove every alternate/generated URL. HTTP may redirect only to the protected

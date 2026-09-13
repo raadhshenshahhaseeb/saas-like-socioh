@@ -1,9 +1,42 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createCatalogProxy } from "./catalog-proxy.ts";
+import { downloadRun, listSamples, loadRun, processCatalog } from "../catalog-client.ts";
 
 const appOrigin = "http://127.0.0.1:3000";
 const goApiUrl = "http://127.0.0.1:8080";
+
+test("browser catalog calls retain same-origin preview authentication without forwarding it to arbitrary URLs", async (t) => {
+  const id = "22222222-2222-4222-8222-222222222222";
+  const calls: { path: string; init: RequestInit }[] = [];
+  const run = { id, status: "processing", rules: { title_prefix: "", exclude_unavailable: false },
+    source: { kind: "sample", sample_id: "catalog-basic-v1" }, started_at: "2026-01-01T00:00:00Z",
+    export_available: false, preview: null, counts: null, failure: null };
+  t.mock.method(globalThis, "fetch", async (input: string | URL | Request, init: RequestInit = {}) => {
+    const path = String(input);
+    calls.push({ path, init });
+    if (path.endsWith("/samples")) return Response.json({ samples: [] });
+    if (path.endsWith("/export")) return new Response("sku,title,price,currency,availability\n", { headers: { "content-type": "text/csv" } });
+    return Response.json({ run });
+  });
+  await listSamples();
+  await processCatalog({ sampleId: "catalog-basic-v1" }, run.rules);
+  await processCatalog({ file: new File(["sku,title,price,currency,availability\n"], "catalog.csv", { type: "text/csv" }) }, run.rules);
+  await loadRun(id);
+  await downloadRun(id);
+  assert.equal(calls.length, 5);
+  for (const call of calls) {
+    assert.match(call.path, /^\/api\/catalog\/(?:samples|runs(?:\/[0-9a-f-]+(?:\/export)?)?)$/);
+    assert.equal(call.init.credentials, "same-origin");
+    assert.equal(call.init.redirect, "error");
+    assert.equal(call.init.cache, "no-store");
+    assert.equal(new Headers(call.init.headers).get("authorization"), null);
+    if (call.init.method === "POST") assert.equal(new Headers(call.init.headers).get("x-catalog-request"), "1");
+  }
+  await assert.rejects(loadRun("https://other.invalid/"));
+  await assert.rejects(downloadRun("../outside"));
+  assert.equal(calls.length, 5, "invalid resource IDs must not cause a fetch");
+});
 
 test("rejects a cross-origin POST before reading its body or calling Go", async () => {
   let reads = 0;
@@ -41,6 +74,7 @@ test("forwards exact bytes to the fixed Go origin without client credentials or 
     assert.equal(headers.get("content-type"), "application/json");
     assert.equal(new TextDecoder().decode(init?.body as Uint8Array), body);
     assert.equal(init?.redirect, "manual");
+    assert.equal(init?.credentials, "omit");
     return Response.json({ error: { code: "invalid_request", message: "Duplicate field." } }, { status: 400 });
   } });
   const request = new Request(`${appOrigin}/api/catalog/runs`, {

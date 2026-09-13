@@ -9,6 +9,8 @@ services:
       POSTGRES_PASSWORD: "${POSTGRES_ADMIN_PASSWORD:?Set the private database administrator password}"
       POSTGRES_MIGRATOR_PASSWORD: "${POSTGRES_MIGRATOR_PASSWORD:?Set the private migration password}"
       POSTGRES_RUNTIME_PASSWORD: "${POSTGRES_RUNTIME_PASSWORD:?Set the private runtime password}"
+      # Coolify may inject a shared env_file into every service. Blank unrelated credentials.
+      PREVIEW_AUTH_USERS: ""
     volumes: ["catalog-data:/var/lib/postgresql/data"]
     networks: [database]
     healthcheck:
@@ -33,6 +35,10 @@ services:
     environment:
       MIGRATION_DATABASE_URL: "postgresql://catalog_migrator:${POSTGRES_MIGRATOR_PASSWORD:?Set the private migration password}@database:5432/catalog_demo?sslmode=disable"
       DEMO_DATABASE_NAME: catalog_demo
+      POSTGRES_ADMIN_PASSWORD: ""
+      POSTGRES_MIGRATOR_PASSWORD: ""
+      POSTGRES_RUNTIME_PASSWORD: ""
+      PREVIEW_AUTH_USERS: ""
     depends_on:
       database: {condition: service_healthy}
     networks: [database]
@@ -54,6 +60,10 @@ services:
       DATABASE_URL: "postgresql://catalog_runtime:${POSTGRES_RUNTIME_PASSWORD:?Set the private runtime password}@database:5432/catalog_demo?sslmode=disable"
       DEMO_DATABASE_NAME: catalog_demo
       APP_ADDR: "0.0.0.0:8080"
+      POSTGRES_ADMIN_PASSWORD: ""
+      POSTGRES_MIGRATOR_PASSWORD: ""
+      POSTGRES_RUNTIME_PASSWORD: ""
+      PREVIEW_AUTH_USERS: ""
     depends_on:
       database: {condition: service_healthy}
       migrate: {condition: service_completed_successfully}
@@ -83,6 +93,10 @@ services:
       NEXT_TELEMETRY_DISABLED: "1"
       HOSTNAME: "0.0.0.0"
       PORT: "3000"
+      POSTGRES_ADMIN_PASSWORD: ""
+      POSTGRES_MIGRATOR_PASSWORD: ""
+      POSTGRES_RUNTIME_PASSWORD: ""
+      PREVIEW_AUTH_USERS: ""
     depends_on:
       backend: {condition: service_healthy}
     networks: [ingress, api]

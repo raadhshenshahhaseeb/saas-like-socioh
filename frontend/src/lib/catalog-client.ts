@@ -34,7 +34,8 @@ async function request<T>(path: string, init: RequestInit, decode: (response: Re
   const timer = AbortSignal.timeout(50_000);
   const combined = signal ? AbortSignal.any([signal, timer]) : timer;
   try {
-    const response = await fetch(path, { ...init, signal: combined, credentials: "omit", cache: "no-store", redirect: "error" });
+    // Fixed relative API paths retain same-origin preview authentication; redirects stay blocked.
+    const response = await fetch(path, { ...init, signal: combined, credentials: "same-origin", cache: "no-store", redirect: "error" });
     if (!response.ok) {
       const payload: unknown = await response.json().catch(() => null);
       if (record(payload) && failure(payload.error)) throw new CatalogError(payload.error, response.status);
