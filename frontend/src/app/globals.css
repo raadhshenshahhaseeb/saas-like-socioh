@@ -1,0 +1,49 @@
+:root {
+  /* Primitives, followed by purpose-based aliases used by components. */
+  --neutral-canvas: #f7f9fc;
+  --neutral-white: #ffffff;
+  --neutral-ink: #243244;
+  --neutral-muted: #596678;
+  --blue-action: #275da8;
+  --red-error: #b4232c;
+  --color-canvas: var(--neutral-canvas);
+  --color-surface: var(--neutral-white);
+  --color-text: var(--neutral-ink);
+  --color-muted: var(--neutral-muted);
+  --color-action: var(--blue-action);
+  --color-error: var(--red-error);
+  --color-border: color-mix(in srgb, var(--color-muted) 32%, var(--color-surface));
+  --color-tint: color-mix(in srgb, var(--color-action) 7%, var(--color-surface));
+  --space-1: .25rem;
+  --space-2: .5rem;
+  --space-3: .75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --radius-control: .375rem;
+  --radius-panel: .75rem;
+  --button-background: var(--color-action);
+  --button-text: var(--color-surface);
+  color-scheme: light;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--color-text);
+  background: var(--color-canvas);
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+h1, h2, h3, p { margin: 0; }
+h1, h2, h3 { text-wrap: balance; scroll-margin-top: var(--space-4); }
+button, input, select { font: inherit; }
+button, a, summary, input[type="radio"], input[type="checkbox"] { touch-action: manipulation; }
+button:not(:disabled), a, summary, select:not(:disabled) { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+button, input, select, a { -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 3px solid var(--color-action); outline-offset: 3px; }
+a { color: var(--color-action); text-underline-offset: .2em; }
+code { font-family: ui-monospace, monospace; font-size: .875em; overflow-wrap: anywhere; }
+input, select { color: var(--color-text); background: var(--color-surface); }
+::selection { color: var(--color-surface); background: var(--color-action); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }

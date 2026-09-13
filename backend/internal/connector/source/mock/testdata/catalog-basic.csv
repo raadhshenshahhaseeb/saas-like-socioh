@@ -1,0 +1,5 @@
+sku,title,price,currency,availability
+ITEM-001,"Desk, ""Studio"" Edition",12.3400,USD,in_stock
+ITEM-002,Café Lamp,0007.5000,EUR,in_stock
+ITEM-003,Studio Chair,99999999999999.9999,PKR,in_stock
+ITEM-004,Travel Bottle,0.0000,USD,out_of_stock

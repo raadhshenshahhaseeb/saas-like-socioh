@@ -1,0 +1,26 @@
+# Keep credentials and local execution artifacts out of the build context.
+.env
+.env.*
+**/.env
+**/.env.*
+.git
+**/.git
+.local
+**/.local
+.cache
+**/.cache
+.gocache
+.gomodcache
+bin
+coverage
+coverage.out
+coverage.xml
+test-results
+*.log
+**/*.log
+*.test
+**/*.test
+*.prof
+**/*.prof
+
+# Embedded source CSV, SQL migrations, and Go test source remain available to the builder.

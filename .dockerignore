@@ -1,0 +1,15 @@
+.git
+.specify
+specs
+tests
+scripts
+**/node_modules
+**/.next
+**/.cache
+**/bin
+**/*.tsbuildinfo
+**/coverage
+**/.env*
+**/*.log
+**/*_test.go
+**/cmd/testserver

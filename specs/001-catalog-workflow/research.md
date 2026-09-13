@@ -1,110 +1,128 @@
-# Phase 1 catalog workflow: research and clarification
+# Owner journey: research and resolved clarifications
 
-Status: specification research and lead-resolved defaults. Application implementation and deployment have not started. Read this document when assessing Go composition, persistence, processing limits, or the reasoning behind this feature's specification. The implementation directory arrangement remains a proposal until code work is approved.
+Status: revised specification research, 2026-09-13. The earlier CSV-processing slice exists and has
+historical test evidence; this document does not certify the new owner/connection/publication flow.
+Read [the governing revision](owner-journey-revision.md), then [data model](data-model.md),
+[HTTP contract](contracts/catalog-api.md) and [provider ports](contracts/provider-ports.md).
 
-## Direction and decision authority
+## Authority and scope correction
 
-The user's current direction is a bounded catalog workflow using Next.js, Go, and PostgreSQL: CSV or sample input → parse → validate → title-prefix and availability rules → preview and CSV export. SaaS Manager and Connector Manager are modules within the same Go deployment. There is one mock provider. This phase establishes a working vertical slice; it does not implement the full historical product blueprint.
+Direct user direction now requires a complete demo-owner authentication/workspace journey, multiple
+backend Go mock sources behind replaceable interfaces, and mock destination publication plus CSV
+download. The earlier fixed-workspace/sample-only/download-only exclusions are superseded, not
+reinterpreted as having implemented these capabilities. Full creative/audience/billing/live-provider
+work remains deferred. The later original UI/UX and independent Brave gates are required after
+functional FE/BE/DB stability, not substitutes for a complete working journey.
 
-The precise persistence behavior, demo workspace, execution limits, CSV contract, and interruption policy below are delegated specification defaults resolved by the lead. They are not claims that the user supplied these exact values or approved them in an earlier conversation. Keep that distinction when changing the governing specification.
+The lead resolved operational choices under delegated clarification: one provisioned owner,
+Shopify-like JSON and generic-feed CSV mocks, two selectable Meta targets, real opaque sessions,
+explicit grants, bounded synchronous work and durable simulated publication/readback. The exact
+numbers, identifier names, DTOs and schema choices below are specification defaults, not quotations
+of historical user requirements. Generic agent/setup instructions remain outside product requirements.
 
-The deployment topology under discussion contains three containers: Next.js, Go, and PostgreSQL. The two Go managers share one process. Next.js-to-Go and Go-to-database communication use private Compose networking. Later Coolify deployment remains a separate operational gate; no remote action was performed for this research.
+## Resolved decision record
 
-## Go reference evidence
-
-Three existing Go checkouts were inspected as organization references. Their business behavior, authorship, and runtime readiness were not adopted. Source locators below are relative to each reference checkout, not paths within this repository. The outer workspace source map resolves the neutral reference IDs to their exact private locations.
-
-| Reference | Inspected source locations | Observed pattern and Phase 1 consequence |
+| Decision | Rationale | Alternatives considered |
 |---|---|---|
-| REF-GO-01 | `cmd/app/main.go:25`, `cmd/app/bootstrap.go:37`, `cmd/app/bootstrap.go:114` | A signal-aware `run` function loads configuration and logging, builds infrastructure and services, and registers handlers. Use an explicit composition root for the single Go application. |
-| REF-GO-01 | `src/config/config.go:13`, `src/config/config.go:59`, `src/config/config_test.go:138` | Typed configuration is loaded centrally. The implementation uses global configuration state and environment mutation that tests reset. Retain typed startup configuration, with isolated loading and validation suitable for tests. |
-| REF-GO-01 | `src/api/candles_stream_handler.go:14`, `src/api/candles_stream_handler.go:48` | An HTTP handler receives a service dependency, decodes transport input, and delegates using the request context. Keep catalog processing authoritative in Go. |
-| REF-GO-01 | `src/api/server.go:33` | HTTP timeouts and graceful shutdown are owned by the server lifecycle. Carry cancellation into bounded processing and stop accepting work during shutdown. |
-| REF-GO-02 | `cmd/app/bootstrap.go:101`, `src/vault/service.go:19`, `src/vault/service.go:35` | A repository, external client, policy, logger, and service-specific configuration are passed through constructors. Give each manager only the dependencies it consumes. |
-| REF-GO-02 | `src/store/db/pg.go:16`, `src/store/db/pg.go:56`, `src/store/db/pg.go:79`, `src/store/db/pg.go:86` | Database configuration, connection construction, close, and health are explicit. The application owns one PostgreSQL connection pool and its lifecycle. The reference uses GORM; that observation does not select Socioh's database library. |
-| REF-GO-02 | `src/store/vaultstore/store.go:17`, `src/store/vaultstore/store.go:60`, `src/vault/profit.go:5` | Interfaces provide persistence and policy boundaries. Use narrow persistence/provider contracts; the two deterministic catalog rules can remain concrete functions. |
-| REF-GO-02 | `src/jsonhttp/jsonhttp.go:121`, `src/jsonhttp/jsonhttp.go:160`, `src/jsonhttp/jsonhttp.go:169` | Functional options configure optional client settings and an injected client. Reserve that pattern for optional construction settings; required dependencies remain explicit. |
-| REF-GO-03 | `common/bootstrapper.go:59`, `rpc/settings/internal/svc/servicecontext.go:28`, `rpc/settings/internal/logic/setdefaultlanguagelogic.go:22` | A bootstrapper builds dependencies, a service context selects them, and logic receives the context. Preserve explicit dependency passing while keeping Phase 1 consumers smaller than the reference's shared container. |
+| Real credential login/session/logout for one provisioned owner; generic users/memberships | Demonstrates an actual authority boundary while allowing later actors without replacing a global-owner object. | Cosmetic login/fixed workspace was insufficient; public signup/invitations/billing would expand current scope. |
+| Go owns identity/membership/policy; Next owns narrow cookie transport | One backend checks all resources; browser IDs and UI state are not authority. | Client-only checks rejected; external identity service/Supabase Auth deferred. |
+| Opaque32-byte sessions hashed in DB; Argon2id passwords | Supports revocation/expiry without JWT-key/distributed-session complexity. | Plaintext/demo hardcoded credentials rejected; full identity-provider integration deferred. |
+| Two functional source adapters plus upload | Proves connect/discover/select/fetch, including differences between sources. | A sample descriptor or multiple cosmetic source tiles does not prove integration behavior. |
+| Small mock Shopify JSON normalizer plus existing CSV parser → shared validator/rules | Shows a real normalization boundary without inventing production Shopify compatibility. | Returning already-successful products would bypass parsing; forcing all future providers to claim CSV is misleading. |
+| Persistent connection/grant and short-lived single-use authorization attempts | Approval/denial/reconnect/revocation become observable and testable. | Real OAuth/app registration/provider credentials not needed for honest simulation. |
+| One Go deployment, explicit constructors and narrow ports | Keeps SaaS/connector ownership without operationally unnecessary microservices. | Separate manager/mock deployments and a DI framework were not justified. |
+| Immutable completed run shared by preview/CSV/publication | Prevents rule-setting drift between demonstrated output and submitted content. | Re-running current UI rules while exporting/publishing rejected. |
+| Explicit confirmed full replacement; no empty publication | Clear destination effect; valid all-excluded input still has usable CSV semantics. | Implicit merge/upsert and silent empty target replacement rejected for this bounded demo. |
+| Independent mock receipt/effect ledger | Reproduces effect-before-acknowledgment failure without pretending a future provider shares an app transaction. | In-memory receipts fail restart; deriving readback from app intent is circular evidence; one shared transaction hides the important crash window. |
+| Client request_id for app replay, server publication UUID for provider idempotency | Separates lost-response recovery from provider identity and avoids old-key reuse after explicit app reset. | One browser key serving both lifecycles creates reset/replay ambiguity. |
+| Unknown target blocks newer work; explicit reconcile/retry, stale-intent guard | Avoids blind resubmission and delayed old content replacing a newer intent. | Automatic retry/queue, force-success and treating timeout as definite no-effect rejected. |
+| Separate app reset versus mock-provider reset | Makes application intent and simulated external effects genuinely independent. | Cascade deletion or implicit target reset would erase evidence of the boundary. |
+| Append migration002 and verify ordered history | Upgrades the verified slice while retaining existing results/checksums. | Editing applied001 or silently dropping/recreating demo data rejected. |
+| Exclusive DB-session lifecycle guard for serve and maintenance | Direct CLI reset and a second Go instance must refuse even while the first app is idle. | Launcher-only check misses direct CLI; shared serve locks allow overlap; distributed fencing is beyond this bounded single-instance model. |
 
-### Adaptation limits
+## Clarifications asked and lead answers
 
-- REF-GO-01 `cmd/app/bootstrap.go:63` and REF-GO-02 `cmd/app/bootstrap.go:93` expose construction paths where later failure can follow successful resource acquisition. Phase 1 startup must release already-created resources before returning an error.
-- REF-GO-02 `cmd/app/bootstrap.go:174` logs failed database health and returns success. Phase 1 requires PostgreSQL for completed results, so readiness must reflect database availability.
-- REF-GO-02 `cmd/app/bootstrap.go:254` defines a background-service entry point whose wait function immediately returns. It supplies no evidence for a working queue or recovery engine, and Phase 1 uses synchronous processing.
-- REF-GO-03 `pkg/postgres/pg.go:30` performs automatic schema migration during connection; `common/bootstrapper.go:92` builds many unrelated repositories. Phase 1 should use an explicit schema-management step and construct only its needed dependencies.
-- REF-GO-01 `src/api/server.go:88` uses permissive CORS settings. The proposed private Next.js-to-Go route needs its own deliberate exposure and origin configuration.
+These are recorded outcomes of the lead discussion, not pending user questions:
 
-## Clarification record
-
-These questions were sent to the lead during reference research. The answers below govern the proposed Phase 1 specification unless revised through the active decision workflow.
-
-| Question | Lead answer | Consequence |
-|---|---|---|
-| What survives restart? | Successful run metadata, immutable rule settings, normalized product rows, and transformed result rows persist in PostgreSQL. Raw CSV bytes are transient. | Recreate preview/export from the stored result. No persistent raw-file or object-asset store is needed. |
-| What does the single mock provider represent? | One injected, in-process mock source returns raw CSV to the real parser. The downloadable output is produced by the real exporter. | Sample and uploaded input exercise the same processing pipeline; there is no mock destination. |
-| Is processing synchronous or a recoverable job? | One bounded synchronous request, with no queue, automatic retry, or resume. Completed runs are retrievable by known run ID. The single Go instance marks leftover processing runs failed at startup. | Persist clear run outcomes without introducing durable worker infrastructure or claiming resumable processing. |
-| What workspace/access behavior belongs in this phase? | One seeded demo workspace; no full authentication, agency model, or billing. | SaaS Manager supplies only the agreed demo-workspace and application-record behavior. Public exposure still requires the later operator-access gate. |
-| What are the input bounds and invalid-row policy? | Defaults: 1 MiB CSV, 1,000 data rows, 30 seconds processing, and two concurrent Go runs. Schema or row errors invalidate the entire input. A valid input whose rows are all filtered out succeeds with a header-only export. | Validate the whole bounded input before accepting a completed result; distinguish invalid input from a valid empty result. |
-| What happens if the caller disconnects or the deadline expires? | Propagate cancellation into Go processing; do not continue as detached work. Persist the failed/cancelled reason best-effort. If completion already committed, retain that completed result. | Export requires a committed completed run. A lost HTTP response does not roll back an already committed result or prove the processing failed. |
-
-### Request and persistence boundary
-
-Go owns validation, rule execution, processing limits, and persistence. Next.js supplies the UI and a backend-for-frontend envelope: it may reject an oversized or malformed request early, but it does not become a second implementation of catalog rules. Both uploaded and sample CSV enter the same Go parser.
-
-The successful state, normalized rows, transformed rows, and immutable settings must commit consistently. A partially processed input must not become exportable. Startup recovery marks stale processing records failed; it does not reconstruct raw input or resume a run. This recovery rule assumes one Go instance and must be revisited before adding replicas.
-
-Cancellation before completion stops further processing through the propagated request context. Persist its reason best-effort without extending the processing into a detached workflow. If a process crash or database failure prevents recording that outcome, the startup rule handles the remaining processing record.
-
-The run ID is returned in the response. Phase 1 does not require a run-history UI, automatic POST retries, idempotency machinery, or lost-response recovery. A completed run can be fetched by a known ID; if the response carrying that ID was lost, the current UI may not expose the result. The user may deliberately submit a new run. Completed-run persistence is not a promise of indefinite retention; a cleanup policy remains later operational work.
-
-## CSV and rule defaults
-
-| Area | Specification default |
+| Question | Answer and owning contract |
 |---|---|
-| Encoding and format | UTF-8, comma-separated CSV, fixed headers: `sku,title,price,currency,availability` |
-| Source paths | Uploaded CSV or the injected mock source's raw CSV; both use the real parser |
-| Identity | Unique, nonempty SKU within the input |
-| Title | Nonempty title |
-| Price | Nonnegative decimal value; exact decimal semantics rather than binary floating point |
-| Currency | Three uppercase letters |
-| Availability | `in_stock` or `out_of_stock` |
-| Validation | Schema or row errors reject the entire input; validation details remain distinguishable from rule exclusions |
-| Rules | Apply the title prefix, then exclusion of unavailable products, using the run's immutable settings |
-| Ordering | Preserve source order among surviving rows |
-| Preview/export | Read the same stored transformed rows and settings; export does not rerun a different transformation |
-| Empty transformed result | A valid all-filtered input completes successfully; export contains the header only |
-| Deferred flexibility | Header mapping, additional feed grammars, generalized expressions, and configurable pipelines are outside Phase 1 |
+| Is account creation required or can an owner be pre-provisioned? | Provision one synthetic owner and workspace; actual login/logout/expiry; no public registration/reset/invitation. Identity details in data model. |
+| Which sources work, and what does replacement mean? | Shopify-like mock with two catalogs, feed mock with one, plus upload. Mocks live in Go behind ports; future real adapters need separate verified provider contracts. |
+| Is publication now included? | User explicitly confirmed backend mock destination plus CSV; Meta-like mock has two target catalogs. No real ads/spend. |
+| Should publishing merge or replace, and is empty output allowed? | Explicit full replacement of immutable included rows; zero-included CSV succeeds but publication is blocked as empty_publication. |
+| What survives restart? | Sessions/identity, attempts/connections, completed run rows, publication intent and independent mock receipts/effects. Raw source/upload bytes remain transient. |
+| Are provider callbacks actually OAuth? | No. Honest simulated approval/denial/cancellation is owner/workspace/provider/account bound, single-use and expiring; grant revisions/expiry/revoke/reconnect are real application behavior. |
+| What are authentication/provider lifetimes and caps? | Central revision freezes password parameters, eight-hour/idle session rules, login budget, five-minute attempts, one-hour mock grants and record caps. Data model/API supply exact enforcement. |
+| Can one Meta catalog block every other target? | No. Active/unknown and supersession scope is workspace+persistent connection+external catalog; two targets are independent. |
+| How is an uncertain publication repaired? | Persist unknown, block newer target intent, explicitly read independent ledger. Authoritative absence permits failed/not_applied; retry only latest eligible intent, same provider key. |
+| May older failed content be retried after a newer intent? | No: publication_superseded. A deliberate new publication may choose an older run. Duplicate provider key returns old receipt without reapplying. |
+| How can outcomes be reopened after login/reload? | Bounded metadata lists for runs and publications, at most100 newest-first and workspace-scoped; no product arrays in list responses. |
+| Should app reset erase simulated external publication? | No. Stopped-app reset retains user/workspace/membership/password, revokes sessions and clears owned application workflow rows. Separate stopped-app mock reset clears only its synthetic provider namespace. |
+| How is stopped-app maintenance enforced directly? | One reserved connection within max5 holds an exclusive advisory lock; maintenance try-lock refuses, and lock-session loss shuts down serve. Four request connections remain. It is not a partition-proof lease. |
 
-The numeric bounds are lead-selected defaults for the bounded slice, not measured throughput claims or user-provided production SLOs. Tests and observed costs can justify later changes through the specification.
+All substantive workflow choices needed for these assigned contracts are resolved. Hosted access,
+real-provider contracts and later product phases remain explicitly deferred, not hidden missing
+Phase1 requirements. Runtime/CLI enforcement details must agree with the implementation plan.
 
-## Proposed Go composition
+## Go reference evidence retained
 
-The implementation plan should assign these responsibilities without installing a general dependency-injection framework or reproducing the reference applications' business modules:
+Neutral reference IDs resolve through the outer workspace source map. Paths below are relative to
+each reference checkout; no personal locations/authorship/runtime claims are imported.
 
-1. **Entry and application lifecycle:** load validated configuration, create logging and PostgreSQL, construct modules and routes, start HTTP, and close resources on failure or shutdown.
-2. **SaaS Manager module:** resolve the seeded demo workspace and the application-record responsibilities this slice actually needs.
-3. **Connector Manager module:** coordinate source intake, the real parser, validation, deterministic rules, result persistence, preview, and export.
-4. **Persistence adapter:** provide explicit operations for run status and atomic completed results through the shared PostgreSQL pool.
-5. **Mock source:** return deterministic raw CSV through a narrow source contract; exercise the same parser and validation path as uploads.
-6. **Transport:** decode requests, enforce the processing/admission limits, propagate context, and map typed outcomes to HTTP responses. Next.js consumes this contract for the visible journey.
-
-Pass repositories and provider contracts directly to constructors. Parsing and the two rules should remain independent of HTTP, environment access, database handles, and container configuration. An application aggregate owns resources; business modules should receive their specific dependencies rather than the entire aggregate. Exact package names and directory structure remain the implementation plan's proposal until code work is approved.
-
-## Verification evidence and proposed checks
-
-The reference tests were read, not executed:
-
-| Reference evidence | What it demonstrates in source | Limit |
+| Reference and locator | Observed evidence | Adaptation |
 |---|---|---|
-| REF-GO-01 `src/api/candles_stream_handler_test.go:153`, `:242`, `:287` | Real routes and services are composed with local test servers and an in-memory dependency; assertions cover observable results. | This is a useful HTTP test shape, not proof that these tests currently pass or that Socioh works. |
-| REF-GO-02 `src/api/health_handler_test.go:14`, `:43` | Injected healthy/failing dependencies exercise HTTP status and response bodies. | No real database readiness is established by those handler tests. |
-| REF-GO-02 `src/velvet/client_test.go:11`, `:37` | Mocked HTTP responses exercise provider request/response mapping. | The tests replace a private client field; an explicit constructor seam would make substitution clearer. |
-| REF-GO-03 `rpc/settings/internal/logic/setdefaultlanguagelogic_test.go:27`, `pkg/postgres/mock.go:11` | Constructed repositories support a behavioral logic test. | The database substitute is SQLite; it does not verify PostgreSQL-specific behavior. |
+| REF-GO-01 `cmd/app/main.go:25`, `cmd/app/bootstrap.go:37` | Signal-aware run/bootstrap composes infrastructure and services. | Explicit main/bootstrap and cleanup on construction failure. |
+| REF-GO-01 `src/config/config.go:13`, `src/config/config_test.go:138` | Typed configuration with globals/environment reset in tests. | Retain typed config, avoid global service/config state. |
+| REF-GO-01 `src/api/candles_stream_handler.go:48`, `src/api/server.go:33` | Handler delegates with request context; lifecycle owns HTTP timeouts. | Preserve bounded context propagation and server lifecycle. |
+| REF-GO-02 `src/vault/service.go:19`, `:35`, `src/store/vaultstore/store.go:17` | Explicit repository/client/policy dependencies and interfaces. | Small consumer-owned auth/provider/persistence ports. |
+| REF-GO-02 `src/store/db/pg.go:16`, `:79`, `:86` | Connection construction, close and health are explicit. | One lifecycle-owned pgx pool; reference ORM is not adopted. |
+| REF-GO-02 `src/jsonhttp/jsonhttp.go:121`, `:160` | Options configure client behavior. | Optional callbacks suit test faults; required dependencies stay explicit. |
+| REF-GO-03 `common/bootstrapper.go:59`, `rpc/settings/internal/svc/servicecontext.go:28` | Bootstrapper/service context passes dependencies. | Retain visible wiring without importing a large shared service locator. |
 
-Phase 1 acceptance should exercise malformed headers/rows, duplicate SKUs, decimal validation, bounds, source failure, rule order, stable row order, all-filtered success, and identical preview/export values. Include an HTTP journey using the real parser/rules/exporter and mock source, plus PostgreSQL tests for atomic completion and restart retrieval. Exercise cancellation before completion, a committed result followed by lost response, startup recovery of incomplete runs, and concurrent-run admission. These are proposed checks; none have been executed for this artifact.
+Reference tests were inspected, not executed: REF-GO-01 handler tests `:153/:242/:287` compose real
+routes/services with controlled dependencies; REF-GO-02 health tests `:14/:43` cover injected healthy/
+failed dependencies; REF-GO-03 settings test `:27` uses a database substitute that does not establish
+PostgreSQL behavior. Current project checks must use its real dedicated PostgreSQL integration DB.
 
-## Later deployment gate and deferred systems
+Adaptation cautions remain: permissive reference CORS is not our exposure policy; schema-on-connect
+is not adopted; a reference health function returning success after logging failure is not readiness
+evidence; reference background stubs do not justify queues. Business scope and authorship are not inferred.
 
-Before public exposure through Coolify, establish operator access, TLS, request/body/time/concurrency limits across the full proxy path, and private service/database connectivity. Verify the three-container runtime independently of local tests. The seeded demo workspace is not a completed multi-tenant authentication system. Deployment approval and actual runtime evidence must be recorded separately.
+## Primary security research used
 
-Supabase, Redis, Kafka or RabbitMQ, ClickHouse, object storage, CDN, creative rendering, audiences, generalized authorization/agency workflows, and production-scale ingestion remain deferred. Their presence in historical designs or shared skill catalogs creates no Phase 1 dependency. This document does not execute any deployment, integration, database operation, or application code.
+The official Go proxy metadata selects `golang.org/x/crypto v0.57.0`, published 2026-09-08,
+with source revision `3f62bf119e84c6e35e8518a2958089ade622d1a3`. Its module requires Go 1.26.0,
+compatible with the retained Go 1.26.8 toolchain. This is the selected Argon2id dependency pin;
+it is not yet added to application module files. Its transitive graph, including x/text 0.42.0,
+must be reviewed/scanned when T030 implements the change. [Release metadata](https://proxy.golang.org/golang.org/x/crypto/@v/v0.57.0.info), [module requirements](https://proxy.golang.org/golang.org/x/crypto/@v/v0.57.0.mod)
+
+On2026-09-13, OWASP password-storage guidance specified Argon2id minimum19 MiB/t2/p1. The lead selected
+those parameters with16-byte random salt/32-byte key and a reviewed implementation, not custom
+cryptography. Password hashing is bounded independently from request bodies. [Password storage](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html)
+
+OWASP session guidance supports unpredictable opaque identifiers, server lifecycle enforcement and
+HttpOnly/Secure/SameSite controls; SameSite alone is not a complete CSRF strategy. The contract adds
+exact Origin/custom-header mutation checks and trusted server cookie→bearer forwarding. The local
+HTTP exception is explicit; TLS/ingress remains a hosted gate. [Session management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html)
+
+Existing Go dependency/image reviews apply only to the inspected smaller-slice snapshots. Their
+patches remain useful, but new authentication dependencies, raw JSON and publication paths require
+fresh checks. Adding an interface or fake provider does not certify external API access or policy.
+
+## Verification and delivery gates
+
+The revised two happy/two sad groups must establish real login and ownership, both source grammars,
+source selection, exact preview/export, consent/grant lifecycle, independent destination receipt/
+readback, reconnect/restart/replay and truthful failures. Supporting tests include unauthorized
+workspace/catalog IDs, nonce replay, expired sessions/grants, bounded storage/hash work, source
+incompleteness, zero publication, independent after-commit crash, superseded retry and separate resets.
+
+After FE/BE/DB stability, perform the required original UI/UX reference/research and refinement,
+then independent Brave checks at the running URL. All agent browser tooling/settings/evidence stays
+outside app and application test commands. Re-run revised dependency/security/image/runtime checks.
+Historical native/Go/PG/browser passes do not replace these new gates.
+
+Later Coolify hosting requires explicit operator-access/TLS/origin/proxy-limit/resource/backup/
+retention validation and authority. Supabase, Redis, Kafka/RabbitMQ, ClickHouse, object/CDN assets,
+real provider authentication/publication, renderer/editor, audiences, agencies/billing and scale
+remain later scope. No remote actions or implementation were performed by this document revision.

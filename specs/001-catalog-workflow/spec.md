@@ -1,165 +1,236 @@
-# Feature Specification: Bounded Catalog Workflow
+# Feature Specification: Demo Owner Catalog Workflow
 
-**Feature Branch**: `master` (unchanged; feature identity is `001-catalog-workflow`)
+**Feature**: 001-catalog-workflow | **Revision**: 2 | **Branch**: master (unchanged)
+**Created**: 2026-09-12 | **Revised**: 2026-09-13
 
-**Created**: 2026-09-12
+**Status**: Revised Phase 1 specification cross-reviewed under constitution 2.0.0. The earlier CSV
+slice is implemented, but its evidence does not establish the owner/auth/connector/publication
+journey below. T028 closes document review; expanded implementation and acceptance remain pending.
+See [scope decisions](owner-journey-revision.md).
 
-**Status**: Specification draft for implementation review; no application implementation or tests executed.
+## Product context and actors
 
-**Input**: Phase 1 user brief: demonstrate one complete catalog-processing workflow with CSV/sample
-input, validation, title-prefix and unavailable-product exclusion rules, preview and CSV download.
-The later product retains richer integration, creative, audience and operational scope.
+The full product retains catalog/feed operations, the future online website, creative production,
+audience workflows and SaaS/agency functions. The Phase 1 workbench is one delivered slice, not the
+whole product or a permanent visual/competitive positioning decision.
+
+Phase 1's user is a genuinely authenticated demo workspace owner. That owner performs the catalog
+operator and simulated publisher responsibilities. One pre-provisioned synthetic account/workspace
+is enough; a label or anonymous fixed-workspace bypass is not authentication. Other operator
+functions remain in the product model, but full designer/approver/agency/billing/support interfaces
+and public registration are not required here. Different actors do not require different servers.
+
+## Clarifications
+
+### Session 2026-09-13
+
+- Q: Should the complete demo-owner journey include publication to a backend mock Meta destination
+  as well as CSV download? → A: Include mock publication plus CSV download.
+- The user requires actual backend Go mock services, connected-source discovery/fetching, a complete
+  demo-account/auth flow, and a post-FE/BE/DB-stabilization original UI/UX pass using the named design
+  skills and relevant website/design references. Live integrations and creative rendering remain
+  deferred. The exact bounded defaults in research and the revision record are lead decisions.
 
 ## User Scenarios & Testing
 
-### User Story 1 - Process a sample catalog (Priority: P1)
+### User Story 1 — Complete the owner catalog journey (Priority: P1)
 
-As a demo operator, I can select a built-in synthetic catalog, configure the two rules, process it,
-inspect the result and download the transformed CSV. I can identify a failure without mistaking it
-for an empty successful catalog.
+As the demo workspace owner, I can sign in, authorize a mock commerce source, discover its catalogs,
+choose one and fetch/process it using the real rules pipeline. I can inspect the completed data,
+download it and publish the same immutable output to an explicitly selected mock destination.
+I understand which actions are simulated and can log out with my server session revoked.
 
-**Why this priority**: It proves the complete workflow through the mock source and real processing.
+**Independent test**: With a seeded owner and empty application/provider state, complete H1 through
+the real SaaS, connector, processing, persistence and mock destination boundaries.
 
-**Independent Test**: Run the sample journey through the actual application, compare preview rows
-and counts with decoded download contents, and verify the controlled source-failure behavior.
+### User Story 2 — Return, change sources and recover safely (Priority: P2)
 
-**Acceptance Scenarios**:
+As the same owner, I can return to my workspace, choose another catalog/provider or upload,
+retrieve past completed results, reconnect a source and understand failed or uncertain publication.
+A retry cannot duplicate or reapply an obsolete effect, and restart does not erase stored results
+or the mock destination's independently stored contents.
 
-1. **H1 — Happy sample:** Given a valid synthetic catalog containing available and unavailable items,
-   when the operator applies prefix `Demo: ` and enables exclusion, then each retained title has
-   exactly one prefix, unavailable items are excluded, original row order is retained, the summary
-   counts reconcile, and the downloaded CSV contains exactly the completed preview's output rows.
-2. **S2 — Sad source failure:** Given a controlled source failure before usable input is obtained,
-   when processing is requested, then the application reports a source failure, no completed output
-   is produced, and download is unavailable. It does not report an empty successful catalog.
+**Independent test**: Use H2 against persisted state; use controlled failures and negative owner
+fixtures for S1/S2. Unit and integration assertions support these two happy/two sad groups rather
+than inventing additional product journeys.
 
-### User Story 2 - Process an uploaded catalog (Priority: P2)
+### Four acceptance groups
 
-As a demo operator, I can upload a catalog in the supported CSV contract and use the same controls,
-validation, preview and download behavior as the sample path.
+| ID | Complete journey | Required outcome |
+|---|---|---|
+| H1 — Owner to published catalog | Credential login → owned workspace → approved mock Shopify connection → discover/select catalog → fetch/decode/validate/two rules → preview → authorized mock Meta target → confirm replacement → publish/readback → CSV download → logout | Actual owner authority, meaningful discovery/selection, exact included rows/counts, independent mock receipt/current readback matching the immutable projection, identical CSV data, revoked session |
+| H2 — Alternative sources and continuity | Sign in again → select the other Shopify catalog and generic-feed source → upload equivalent CSV → retrieve completed results → repeat the same publication request safely → restart the owned app → re-login if needed and perform fresh provider readback → disconnect/reconnect | Different catalogs produce distinguishable data; equivalent source product content produces equivalent output; results and separate provider effects survive restart; replay does not apply a second effect; reconnect retains connection identity and advances grant revision |
+| S1 — Identity and authorization failure | Wrong credentials, expired/revoked session, foreign-resource selection, wrong/expired/replayed mock authorization attempt | Server rejects access before provider callbacks or unauthorized data changes; app-session expiry leads to login, while a provider-grant problem requires reconnect without logging out the owner |
+| S2 — Processing and delivery failure | Denied/failed/incomplete source, malformed/over-limit input, empty publication, definite destination rejection, lost acknowledgment/crash, conflicting request ID or superseded retry | Truthful bounded errors; invalid source/input cannot produce completed output; valid CSV survives every publication outcome; definite no-effect failure preserves the prior destination; uncertain effects may have replaced it and must reconcile through independent readback, not invented success/failure or blind replay |
 
-**Why this priority**: It demonstrates that the processing behavior works on supplied input as well
-as the built-in source fixture.
+A second synthetic owner/workspace may exist only in negative integration fixtures; it is not an
+additional delivered UI account or proof of a complete multi-tenant product.
 
-**Independent Test**: Upload the sample's bytes with the same settings and compare business output
-with H1, excluding run identifiers and timestamps. Reject invalid/over-limit input without export.
+### Edge cases and customer-visible states
 
-**Acceptance Scenarios**:
-
-1. **H2 — Happy equivalent upload:** Given the same valid bytes and rule settings as H1, when uploaded
-   and processed, then validation, included/excluded counts and decoded output equal the sample
-   result. After restarting the application, a known completed result remains downloadable.
-2. **S1 — Sad invalid input:** Given malformed CSV, a missing/duplicate required header, an invalid
-   row, or an exceeded input limit, when submitted, then a bounded actionable error identifies the
-   failure, the input does not partially succeed, and there is no completed downloadable output.
-   Named fixture variants belong to this one negative scenario; they are not extra product journeys.
-
-### Edge Cases
-
-- A valid input whose rows are all excluded completes successfully with zero output rows and a
-  header-only CSV. A header-only source with no input products is a validation failure.
-- Empty prefix and exclusion disabled leave valid product values unchanged after documented basic
-  normalization. Each processing request uses the original input; reprocessing cannot double-prefix
-  a stored result accidentally.
-- Changing a control after completion marks the displayed result as belonging to its previous
-  settings. A new processing request is required; download never silently reflects unprocessed edits.
-- Duplicate item identifiers, invalid prices or unavailable-state spellings fail the complete input.
-- Preview, export and concurrent browser tabs refer to an immutable completed run; settings are not
-  read from mutable global state at download time.
-- Deadline/client cancellation does not create detached processing. If completion was committed
-  before the connection was lost, the stored completed result remains valid; retry starts a new run.
-- A busy system, database failure, unknown result or failed result returns an explicit failure, not
-  an empty success. Unfinished runs from a previous process are marked interrupted on startup.
+- Authorized connection, completed import/run, ready CSV, acknowledged submission and verified
+  mock publication are distinct states. No mock receipt is labeled real Meta acceptance or ad serving.
+- Authorization denial/cancellation creates no active grant. Expired attempts cannot be consumed;
+  consumed attempts cannot be replayed; a stale reconnect cannot replace a newer grant.
+- A selected catalog must belong to the active authorized source. Partial fetch is a failure, not
+  a complete empty source. Empty discovery and an invalid empty product input have different messages.
+- Every input row is validated before exclusion. Valid all-excluded input succeeds with a header-only
+  CSV but is blocked from publication as empty_publication.
+- Prefix applies once to each original normalized input. A new run does not transform a prior
+  stored output again. Original row order and exact decimal strings remain stable.
+- Editing controls marks displayed output as using previous settings; it never changes that stored
+  output, its CSV or a published revision. Starting a new attempt does not delete previous results.
+- Switching away from file upload clears a no-longer-visible File selection. Form validation and
+  server field errors remain associated with the correct accessible control.
+- Logout/expiry blocks subsequent protected requests. Revoking a source stops future fetches;
+  it does not erase already owned completed output. In-flight or already accepted effects are
+  recorded honestly rather than claimed retracted by logout or disconnect.
+- Application restart marks interrupted local processing failed, but interrupted publication unknown.
+  Only fresh independent adapter evidence may settle whether its effect exists.
+- Duplicate client action keys resolve to one immutable application intent; different content under
+  the same key conflicts. Duplicate provider keys return their original receipt without reapplying.
+- Unknown publication blocks a new intent for that target until reconciled. An older failed attempt
+  cannot overwrite a newer intent. A new deliberate publication may explicitly select an older run.
+- A historical receipt proves an earlier application of a revision; it does not claim that revision
+  remains the current target after a later replacement.
+- Application reset does not retract simulated provider effects. A separate explicit mock-state reset
+  is required, with the application stopped and exact synthetic scope verified.
 
 ## Requirements
 
 ### Functional Requirements
 
-- **FR-001**: Operators MUST be able to choose a synthetic sample or upload a supported CSV and see
-  which source is selected. No arbitrary remote URL input or live provider authorization is offered.
-- **FR-002**: Both input modes MUST pass raw CSV through the same authoritative parsing, validation,
-  transformation and export behavior. A built-in sample must not bypass validation.
-- **FR-003**: Input MUST use UTF-8 comma-separated CSV with exactly the required headers `sku`,
-  `title`, `price`, `currency`, `availability`, in any order, with each header present once. A leading
-  UTF-8 BOM and CRLF/LF line endings are accepted; additional formats/field mapping are deferred.
-- **FR-004**: Each normalized product MUST have a unique nonempty SKU, nonempty title, nonnegative
-  decimal price, three uppercase currency letters and availability `in_stock` or `out_of_stock`.
-  Trim surrounding whitespace. Validate every input row before applying exclusion.
-- **FR-005**: Operators MUST be able to configure only a literal title prefix and an exclude-unavailable
-  switch. Apply prefix once to each original normalized title; omit unavailable rows when enabled;
-  preserve retained row order. Store the exact settings with the result.
-- **FR-006**: Completed results MUST show input, included and excluded counts and all output rows
-  within the bounded input. Input count MUST equal included plus excluded count.
-- **FR-007**: Download MUST serialize the same completed output shown in preview, with headers in
-  the canonical order above, correct CSV escaping and a stable neutral filename. Values/counts
-  MUST NOT be independently recomputed by the interface.
-- **FR-008**: Invalid or over-limit input MUST fail as a whole with bounded row/field errors and no
-  completed output. Source/system failures MUST remain distinct from validation failures.
-- **FR-009**: Successful run metadata, immutable settings and normalized/transformed rows MUST persist
-  across restart. Raw uploaded/sample file bytes are transient. A known completed result can be
-  retrieved without a persistent raw-file/object-storage service.
-- **FR-010**: Processing MUST enforce the input, field, deadline and concurrency limits below. Work
-  stops on cancellation where completion has not already committed. There is no background queue,
-  automatic retry, resumable job or multiple processing deployment in Phase 1.
-- **FR-011**: A seeded demo workspace MUST scope each run and result. It is supplied by trusted
-  application configuration, not by an arbitrary browser-provided tenant identifier. This is not
-  full authentication, organization administration or demonstrated multi-tenant isolation.
-- **FR-012**: The interface MUST distinguish ready, processing, completed, validation failure and
-  source/system failure, and disable unavailable actions. A deliberate new run is the recovery
-  action after failure; changing rules does not mutate completed output.
-- **FR-013**: Sample mocks MUST be able to inject a source error for automated verification and MUST
-  fail unexpected unconfigured calls. Runtime controls for arbitrary failure injection are not public.
-- **FR-014**: Documents, fixtures, displayed errors and exports MUST exclude personal data and secrets.
-  Display product text as data. Reject control characters and spreadsheet-formula-leading text in
-  SKU/title fields and the resulting prefixed title before marking a run successful.
-- **FR-015**: Packaging MUST permit the selected frontend, backend and relational database to run
-  together as one reproducible containerized application with private backend/database access. Actual hosted deployment
-  follows separate completion and exposure checks; it is not completed by producing the package.
+- **FR-001**: Provide real credential login, current owner/session retrieval, server-side logout,
+  absolute/idle expiry and protected navigation for one pre-provisioned synthetic owner account.
+  Do not substitute a UI flag, global user or fixed workspace label for verified identity.
+- **FR-002**: Resolve workspace membership and permissions on the server for every connection,
+  catalog, processing run, download and publication. Reject foreign resources before adapter calls;
+  browser-supplied identity, role, workspace or authorization headers do not establish authority.
+- **FR-003**: Provide two working backend source adapter kinds: Shopify-like mock with at least two
+  distinguishable catalogs and generic-feed mock with at least one. Keep CSV upload as a separate
+  intake path, not as proof of connected-source behavior.
+- **FR-004**: Support meaningful simulated source/destination authorization: start a bounded
+  owner/workspace/provider/account/capability-bound attempt, approve/deny/cancel once, persist an
+  active connection/grant, disconnect and reconnect safely. Label simulation, not real OAuth.
+- **FR-005**: Discover catalogs under an active connection, validate the selected catalog's authority,
+  fetch bounded raw input and preserve provider/catalog/format/revision/completeness provenance.
+  Reject incomplete acquisition rather than treating it as successful empty input.
+- **FR-006**: Decode the explicitly documented mock Shopify JSON shape through a real normalizer.
+  Decode generic feed/upload as UTF-8 CSV with exactly sku,title,price,currency,availability headers
+  in any order. Accept optional UTF-8 BOM and LF/CRLF; reject malformed or extra/missing/duplicate
+  fields under the relevant schema. All paths converge before shared validation and transformation.
+- **FR-007**: Require unique nonempty SKU per input run, nonempty title, exact nonnegative decimal
+  price, three uppercase ASCII currency letters and in_stock/out_of_stock availability. Preserve
+  raw control-character rejection before trimming; reject formula-leading text. Do not treat SKU
+  as a globally unique identity across external stores/catalogs.
+- **FR-008**: Apply only a literal title prefix and optional exclusion of unavailable products.
+  Validate the whole input first, apply prefix once to original normalized titles, then exclude;
+  retain source order and the exact immutable settings.
+- **FR-009**: Show complete bounded output rows, input/included/excluded counts, captured rules and
+  meaningful source/catalog provenance. Counts must reconcile; stale controls must be explicit.
+- **FR-010**: Download exactly the completed stored projection with canonical column order, correct
+  escaping, stable neutral filename and safe CSV response headers. Never recompute business rules
+  in the browser or read mutable current controls when exporting.
+- **FR-011**: Persist authenticated workspace-scoped run metadata, settings, normalized/transformed
+  results and discoverable recent result metadata across app restart. Raw source bytes are transient.
+  Authorized owners can return to prior results after re-login without losing their context.
+- **FR-012**: Let the owner authorize a mock Meta-like destination, discover at least two target
+  catalogs and explicitly confirm a full nonempty replacement from a completed run. Publication
+  must bind the exact target and immutable output; zero included rows returns empty_publication.
+- **FR-013**: Keep durable application publication intent/status separate from independently durable
+  mock-provider receipts/effects. Mark published only after fresh adapter readback confirms the
+  intended target/hash/count. Receipt/history and current destination contents remain distinct.
+- **FR-014**: Enforce workspace-scoped client replay keys and stable server-generated provider
+  idempotency keys. Same intent/key reuses its record; mismatched content conflicts. Prevent duplicate
+  effects, old-key reapplication, concurrent unresolved target intents and superseded retries.
+- **FR-015**: Represent pending, unknown, published and failed publication explicitly. Provide
+  read/reconcile and eligible explicit retry operations; no automatic retry/queue or force-success
+  endpoint. Every outcome preserves valid completed CSV. Only definite no-effect failure preserves
+  the prior destination unchanged; uncertainty may already include a committed replacement and
+  must be reconciled against actual independent state.
+- **FR-016**: Bound input to 1 MiB and 1,000 products, JSON envelopes to 16 KiB, concurrent mutations
+  to two and reads to four per process, with bounded acquisition/processing/read/cleanup deadlines.
+  Bound sessions, authorization attempts, runs, publications and mock effects independently.
+- **FR-017**: Maintain ordered checksummed ordinary PostgreSQL migrations, explicit seed/bootstrap,
+  least-required runtime grants and operator-only confirmed reset operations. Preserve already
+  applied migration bytes and verify both fresh initialization and upgrade from the prior slice.
+- **FR-018**: Distinguish signed-out/expired application session from expired/revoked provider grant;
+  distinguish source, validation, capacity, publication and transport/unknown failures. Provide
+  actionable recovery without implying that an uncertain response means no durable effect.
+- **FR-019**: Keep production-demo source/destination mocks in appropriate backend services
+  behind narrow replaceable interfaces; real processing and
+  publication orchestration remain outside the mocks. Fault callbacks are test composition, not
+  public debug headers or a substitute browser interception.
+- **FR-020**: Protect credentials and sessions with server password hashing, random opaque sessions,
+  hashed token storage, bounded login work, narrow HttpOnly-cookie transport, secure TLS settings,
+  no client-readable session token, exact-Origin/custom-header checks and safe no-store responses.
+  Enforce authority on the server; hiding a UI action is not authorization.
+- **FR-021**: After the functional FE/BE/DB stability gate, complete an original operator UI/UX pass:
+  review the supplied Socioh references and suitable Behance/other workbench examples, record design
+  reasoning, apply the required design skills and verify final interaction states. Do not copy a
+  competitor's branding, assets, marketing copy or page layout, or infer new features from examples.
+- **FR-022**: Provide a Dockerized local application with private backend/database connectivity,
+  health checks and bounded resources. Prefer one active normal frontend; additional fault/native
+  instances are short-lived verification environments, not actor-specific product deployments.
+- **FR-023**: Keep documents and generated artifacts in the application repository free of PII,
+  machine paths, credentials and private diagnostic content. Use synthetic catalogs; do not claim
+  the application automatically detects all PII. Keep agent browser tooling/evidence outside app.
+- **FR-024**: Avoid overlapping Go instances against this demo state. Startup recovery must preserve
+  completed results, treat local processing interruption separately from uncertain provider effects,
+  and allow explicit safe reconciliation after restart.
 
-### Key Entities
+### Canonical product and bounded defaults
 
-- **Demo workspace:** stable synthetic owner context for this phase's runs.
-- **Source descriptor:** a selectable built-in sample or uploaded input, with synthetic metadata.
-- **Normalized product:** the five canonical fields plus original row position.
-- **Rule settings:** literal title prefix and exclude-unavailable boolean captured for one run.
-- **Processing run:** source kind, owner, settings, status, counts, timestamps and bounded failure detail.
-- **Result item:** original normalized values, transformed values and inclusion decision belonging to
-  one run. Completed result items are immutable.
+The exported product has five fields. SKU is ASCII, starts alphanumeric, permits alphanumeric,
+dot, underscore and hyphen, and is at most 128 characters. Title is nonempty and at most 200 Unicode
+characters after surrounding-whitespace normalization. A literal prefix is at most 64 Unicode
+characters; the resulting title is at most 264. Control characters and formula-leading =,+,-,@
+after whitespace are rejected in the relevant source/output text.
+
+Price permits at most 14 integer and 4 fractional decimal digits, with no exponent, sign or float
+conversion; canonical text removes unnecessary fractional zeros. Currency is exactly three
+uppercase ASCII letters. Availability is in_stock or out_of_stock. Validation applies before
+exclusion, including to unavailable rows. A header-only source is invalid.
+
+Operational defaults, lifetime/capacity limits, mock fixture schemas and state transitions are
+defined in [research](research.md), [data model](data-model.md), [API contract](contracts/catalog-api.md)
+and [revision decisions](owner-journey-revision.md). These are bounded Phase 1 choices, not a claim
+of production-provider compatibility or zero-change future migration.
+
+### Out of Scope
+
+Live commerce/ad APIs, live provider OAuth, real ad publication or spending, external identity
+provider integration, public registration/password reset, full agency/billing/other-operator UIs,
+creative rendering/editor delivery, audiences, broker/Redis/ClickHouse, persistent raw asset/CDN
+infrastructure, and the full public marketing website are outside this implementation slice.
+The future website and creative experience remain in product scope. Hosted release still requires
+its separate operator/access/TLS/backup/resource decision and authorization.
 
 ## Success Criteria
 
-### Measurable Outcomes
+- **SC-001**: H1 completes through real owner authentication, persisted connection discovery/fetch,
+  real processing, exact CSV and independently verified mock publication, then server-side logout.
+- **SC-002**: H2 proves actual catalog/provider diversity, CSV equivalence, immutable result history,
+  connection lifecycle and fresh independent destination readback after owned application restart.
+- **SC-003**: S1 rejects invalid/expired identity, foreign resources and invalid/replayed authorization
+  before provider calls or unauthorized data changes; second-owner fixtures remain test-only.
+- **SC-004**: S2 proves honest source/input/destination failures, no partial invalid catalog output,
+  valid CSV preservation, independent uncertain-effect recovery and no duplicate/obsolete overwrite.
+- **SC-005**: Fresh database setup and ordered upgrade both pass with unchanged prior migration
+  checksum, real runtime-role restrictions and explicit independent reset boundaries.
+- **SC-006**: Relevant Go race/integration/vet/property checks, BFF/session checks, production builds,
+  dependency/image review and revised security assessment pass or retain explicit reviewed limits.
+- **SC-007**: The functional FE/BE/DB stability gate precedes reference-informed original UI/UX
+  refinement. Its design rationale and operator-state coverage are recorded, not inferred from a build.
+- **SC-008**: An agent independently verifies the final owner H1/H2/S1/S2 in actual Brave, including
+  keyboard/error focus, 375/768/1440 widths, actual 200% zoom, exact download and mock readback.
+  All Playwright tooling, configuration and evidence remains outside application code/tests.
+- **SC-009**: Local readiness is documented separately from hosted deployment. One normal local
+  frontend remains at handoff; redundant owned test instances are stopped without deleting data.
 
-- **SC-001**: H1 and H2 produce identical business output for identical input and settings.
-- **SC-002**: Every completed download decodes to the preview's exact output values and row order;
-  summary counts reconcile, including the zero-retained-row case.
-- **SC-003**: S1 and S2 produce zero completed exports, identify the failure category, and allow a
-  deliberate corrected/new attempt.
-- **SC-004**: Oversized and excess-row inputs are rejected at the specified boundary; processing
-  stops at the configured deadline and additional concurrent work is rejected predictably.
-- **SC-005**: The two happy and two sad acceptance scenarios pass through appropriate application
-  and dependency-boundary checks, with evidence saved before any delivery claim.
-- **SC-006**: The same workflow can be rehearsed in the packaged application. Hosted deployment is
-  reported only after the separate target-host gate and runtime verification.
+## Evidence boundary
 
-## Assumptions
-
-These operational defaults were selected by the lead under the user's delegated specification
-workflow; they are not claimed as values supplied by the user. They remain reviewable before coding:
-
-- Maximum file payload: 1 MiB; maximum 1,000 product rows; maximum 30 seconds processing; two
-  admitted runs. Reject excess concurrency immediately rather than queueing it.
-- Maximum SKU length 128 characters, input title 200, prefix 64, output title 264; cap errors at 100.
-  SKU begins with an ASCII letter/digit and contains only letters, digits, `.`, `_`, `-`. Title/prefix
-  cannot contain control characters; a final title whose first non-whitespace character is `=`, `+`,
-  `-` or `@` is rejected.
-- Price supports up to 14 integer and four fractional digits; normalize decimals without floating
-  point and without currency conversion. Currency spelling is syntactic, not a pricing/locale policy.
-- Empty prefix is valid; exclusion defaults off. CSV output uses LF and RFC-style quoting.
-- One controlled demo operator/workspace is sufficient. Persisted rows are synthetic/non-personal.
-  There is no run-history screen, multi-user access model or real provider account in this phase.
-- Optional fixed creative preview is deferred until this catalog workflow is accepted; it is not
-  required for completing this feature.
-
-See [research.md](research.md) for provenance and lead answers, [plan.md](plan.md) for technical
-responsibility and proposed source layout, and [quickstart.md](quickstart.md) for the planned checks.
+Existing CSV pipeline tests, four native browser checks and patched container/image observations
+cover the prior narrower slice. They are reusable regression evidence, not acceptance of the
+new account, connector, publication or final design requirements. Revised tasks must be verified
+against their actual implementation before Phase 1 is marked complete.

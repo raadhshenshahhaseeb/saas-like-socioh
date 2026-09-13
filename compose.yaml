@@ -1,0 +1,89 @@
+services:
+  database:
+    image: socioh-phase1-postgres:local
+    build: {context: ., dockerfile: postgres.Dockerfile}
+    env_file: ["${SOCIOH_PG_ENV_FILE:?Use the owned compose launcher}"]
+    volumes: ["database-data:/var/lib/postgresql/data"]
+    networks: [database]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+    mem_limit: 512m
+    cpus: 1
+    restart: unless-stopped
+    logging: &bounded-logs
+      driver: json-file
+      options: {max-size: "5m", max-file: "2"}
+    labels: {dev.socioh.owner: "${SOCIOH_OWNER:?}"}
+
+  backend:
+    image: socioh-phase1-backend:local
+    build: {context: ./backend}
+    env_file: ["${SOCIOH_GO_ENV_FILE:?Use the owned compose launcher}"]
+    networks: [api, database]
+    depends_on:
+      database: {condition: service_healthy}
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: ["CMD", "/catalog", "health"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+    mem_limit: 256m
+    cpus: 1
+    restart: unless-stopped
+    stop_grace_period: 15s
+    logging: *bounded-logs
+    labels: {dev.socioh.owner: "${SOCIOH_OWNER:?}"}
+
+  frontend:
+    image: socioh-phase1-frontend:local
+    build: {context: ./frontend}
+    environment:
+      APP_ORIGIN: "http://127.0.0.1:${SOCIOH_COMPOSE_PORT:-3100}"
+      GO_API_URL: "http://backend:8080"
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      HOSTNAME: "0.0.0.0"
+      PORT: "3000"
+    ports: ["127.0.0.1:${SOCIOH_COMPOSE_PORT:-3100}:3000"]
+    networks: [ingress, api]
+    depends_on:
+      backend: {condition: service_healthy}
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+      - /app/.next/cache:size=32m,uid=1000,gid=1000,mode=0700
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 512m
+    cpus: 1
+    restart: unless-stopped
+    stop_grace_period: 15s
+    logging: *bounded-logs
+    labels: {dev.socioh.owner: "${SOCIOH_OWNER:?}"}
+
+volumes:
+  database-data:
+    external: true
+    name: socioh-p1-compose-data
+
+networks:
+  ingress:
+    labels: {dev.socioh.owner: "${SOCIOH_OWNER:?}"}
+  api:
+    internal: true
+    labels: {dev.socioh.owner: "${SOCIOH_OWNER:?}"}
+  database:
+    internal: true
+    name: socioh-p1-app-database
+    labels: {dev.socioh.owner: "${SOCIOH_OWNER:?}"}

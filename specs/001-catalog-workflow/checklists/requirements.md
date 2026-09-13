@@ -1,7 +1,8 @@
-# Specification Quality Checklist: Bounded Catalog Workflow
+# Specification Quality Checklist: Demo Owner Catalog Workflow
 
 **Purpose**: Review specification quality before implementation planning.
 **Created**: 2026-09-12
+**Revised**: 2026-09-13, scope revision 2; document quality only, not implementation acceptance.
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -26,6 +27,10 @@
 - [x] The source mock exercises real parsing and transformation; failure cannot be labeled empty success.
 - [x] Completed results and failed results have different export behavior.
 - [x] Application implementation, executed tests and deployment are not claimed complete.
+- [x] Real owner authentication, session lifecycle and server resource authority are explicit.
+- [x] Connected mock providers exercise authorization, discovery, raw fetching and real normalization.
+- [x] Publication intent and independently durable mock effects/readback have complete replay and failure contracts.
+- [x] Post-stack-stability original design and independent external-agent Brave verification are required tasks.
 
 ## Notes
 
